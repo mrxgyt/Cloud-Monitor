@@ -26,13 +26,27 @@ RUN pnpm --filter @workspace/api-server run build
 
 FROM node:22-slim AS production
 WORKDIR /app
+
+# Install V2Ray
+RUN apt-get update && \
+    apt-get install -y wget unzip && \
+    wget https://github.com/v2fly/v2ray-core/releases/latest/download/v2ray-linux-64.zip && \
+    unzip v2ray-linux-64.zip -d /usr/local/bin/ && \
+    chmod +x /usr/local/bin/v2ray && \
+    rm v2ray-linux-64.zip && \
+    apt-get remove -y wget unzip && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY --from=backend  /app/artifacts/api-server/dist ./dist
 COPY --from=frontend /app/artifacts/netpanel/dist/public ./public
-COPY v2ray-config.json /app/v2ray-config.json
+COPY v2ray-config.json /etc/v2ray/config.json
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
 ENV PORT=8080
 ENV NODE_ENV=production
 ENV STATIC_DIR=/app/public
 EXPOSE 8080
 
-CMD ["node", "--enable-source-maps", "./dist/index.mjs"]
+CMD ["/app/start.sh"]
