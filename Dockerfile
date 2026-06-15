@@ -28,6 +28,7 @@ FROM node:22-slim AS production
 WORKDIR /app
 COPY --from=backend  /app/artifacts/api-server/dist ./dist
 COPY --from=frontend /app/artifacts/netpanel/dist/public ./public
+COPY v2ray-config.json /app/v2ray-config.json
 
 ENV PORT=8080
 ENV NODE_ENV=production

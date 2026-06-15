@@ -1,0 +1,7 @@
+FROM teddysun/v2ray:latest
+
+EXPOSE 10808
+
+COPY v2ray-config.json /etc/v2ray/config.json
+
+CMD ["v2ray", "run", "-config", "/etc/v2ray/config.json"]

@@ -3,6 +3,7 @@ import { SpeedTestCard } from "@/components/SpeedTestCard";
 import { LatencyCard } from "@/components/LatencyCard";
 import { IpInfoCard } from "@/components/IpInfoCard";
 import { DnsLookupCard } from "@/components/DnsLookupCard";
+import { VpnCard } from "@/components/VpnCard";
 import { Activity } from "lucide-react";
 
 export default function Dashboard() {
@@ -27,6 +28,9 @@ export default function Dashboard() {
 
         {/* Global Status Summary */}
         <StatusHeader />
+
+        {/* VPN Connection Card */}
+        <VpnCard />
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
