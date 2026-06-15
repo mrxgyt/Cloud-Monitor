@@ -118,33 +118,23 @@ router.get("/network/speedtest", async (req, res) => {
 // GET /ip-info
 router.get("/network/ip-info", async (req, res) => {
   try {
-    const response = await fetch("https://ip-api.com/json/?fields=status,country,regionName,city,isp,lat,lon,timezone,query", {
+    const response = await fetch("https://ipinfo.io/json", {
       signal: AbortSignal.timeout(8000),
     });
     const data = await response.json() as Record<string, unknown>;
-    if (data.status === "success") {
-      res.json({
-        ip: data.query as string,
-        city: data.city as string | null ?? null,
-        region: data.regionName as string | null ?? null,
-        country: data.country as string | null ?? null,
-        isp: data.isp as string | null ?? null,
-        latitude: (data.lat as number | null) ?? null,
-        longitude: (data.lon as number | null) ?? null,
-        timezone: (data.timezone as string | null) ?? null,
-      });
-    } else {
-      res.json({
-        ip: "Unknown",
-        city: null,
-        region: null,
-        country: null,
-        isp: null,
-        latitude: null,
-        longitude: null,
-        timezone: null,
-      });
-    }
+    const loc = typeof data.loc === "string" ? data.loc.split(",") : [];
+    const latitude = loc[0] ? parseFloat(loc[0]) : null;
+    const longitude = loc[1] ? parseFloat(loc[1]) : null;
+    res.json({
+      ip: (data.ip as string) ?? "Unknown",
+      city: (data.city as string | null) ?? null,
+      region: (data.region as string | null) ?? null,
+      country: (data.country as string | null) ?? null,
+      isp: (data.org as string | null) ?? null,
+      latitude,
+      longitude,
+      timezone: (data.timezone as string | null) ?? null,
+    });
   } catch (err) {
     req.log.error({ err }, "ip-info fetch failed");
     res.json({
