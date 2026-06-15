@@ -1,0 +1,143 @@
+16:29:51
+Container builder is still running.
+
+15/06/26 16:29:43
+Container builder is still running.
+
+15/06/26 16:29:35
+Container builder is still running.
+
+15/06/26 16:29:30
+INFO[0124] Taking snapshot of full filesystem...        
+
+15/06/26 16:29:30
+INFO[0124] Initializing snapshotter ...                 
+
+15/06/26 16:29:27
+Container builder is still running.
+
+15/06/26 16:29:19
+Container builder is still running.
+
+15/06/26 16:29:15
+INFO[0109] Unpacking rootfs as cmd COPY artifacts/api-server/ ./artifacts/api-server/ requires it. 
+
+15/06/26 16:29:15
+INFO[0109] No cached layer found for cmd RUN pnpm --filter @workspace/api-server run build 
+
+15/06/26 16:29:15
+INFO[0108] Checking for cached layer cr.yandex/crp2gf3gm8rv83kfkvet/amvera-mistermackaliste-22/cache:ef3f1d159f9be6d107824084a2edac80a0a10f49be05cf05d53599508832ca96... 
+
+15/06/26 16:29:15
+INFO[0108] Building stage 'frontend' [idx: '2', base-idx: '1'] 
+
+15/06/26 16:29:15
+INFO[0108] Executing 0 build triggers                   
+
+15/06/26 16:29:15
+INFO[0108] Base image from previous stage 1 found, using saved tar at path /kaniko/stages/1 
+
+15/06/26 16:29:13
+INFO[0107] Deleting filesystem...                       
+
+15/06/26 16:29:13
+INFO[0107] Saving file app/artifacts/netpanel/dist/public for later use 
+
+15/06/26 16:29:13
+INFO[0106] Storing source image from stage 1 at path /kaniko/stages/1 
+
+15/06/26 16:29:13
+INFO[0106] Pushed cr.yandex/crp2gf3gm8rv83kfkvet/amvera-mistermackaliste-22/cache@sha256:5795f499ae2e4a3c7fd3d5cd8edcd54dd24bbec8af51806e7796d5999ed9f244 
+
+15/06/26 16:29:11
+INFO[0105] Pushing image to cr.yandex/crp2gf3gm8rv83kfkvet/amvera-mistermackaliste-22/cache:943931862d255c5d661c17a5cbe7fc2971afa36e0ff95a571b450ffffc9730b4 
+
+15/06/26 16:29:11
+INFO[0105] Pushing layer cr.yandex/crp2gf3gm8rv83kfkvet/amvera-mistermackaliste-22/cache:943931862d255c5d661c17a5cbe7fc2971afa36e0ff95a571b450ffffc9730b4 to cache now 
+
+15/06/26 16:29:11
+Container builder is still running.
+
+15/06/26 16:29:10
+INFO[0103] Taking snapshot of full filesystem...        
+
+15/06/26 16:29:08
+✓ built in 3.71s
+
+15/06/26 16:29:08
+dist/public/assets/index-Ch4Cfu_-.js   386.70 kB │ gzip: 124.09 kB
+
+15/06/26 16:29:08
+dist/public/assets/index-O9SMR2bA.css   94.00 kB │ gzip:  15.31 kB
+
+15/06/26 16:29:08
+dist/public/index.html                   1.39 kB │ gzip:   0.55 kB
+
+15/06/26 16:29:08
+computing gzip size...
+
+15/06/26 16:29:08
+rendering chunks...
+
+15/06/26 16:29:08
+✓ 1825 modules transformed.
+
+15/06/26 16:29:07
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+15/06/26 16:29:05
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+15/06/26 16:29:05
+transforming...
+
+15/06/26 16:29:05
+vite v7.3.3 building client environment for production...
+
+15/06/26 16:29:04
+> vite build --config vite.config.ts
+
+15/06/26 16:29:04
+> @workspace/netpanel@0.0.0 build /app/artifacts/netpanel
+
+15/06/26 16:29:04
+INFO[0097] Running: [/bin/sh -c PORT=3000 BASE_PATH=/ pnpm --filter @workspace/netpanel run build] 
+
+15/06/26 16:29:04
+INFO[0097] Args: [-c PORT=3000 BASE_PATH=/ pnpm --filter @workspace/netpanel run build] 
+
+15/06/26 16:29:04
+INFO[0097] Cmd: /bin/sh                                 
+
+15/06/26 16:29:03
+Container builder is still running.
+
+15/06/26 16:29:03
+INFO[0096] RUN PORT=3000 BASE_PATH=/ pnpm --filter @workspace/netpanel run build 
+
+15/06/26 16:29:03
+INFO[0096] COPY artifacts/netpanel/ ./artifacts/netpanel/ 
+
+15/06/26 16:29:03
+INFO[0096] COPY lib/ ./lib/                             
+
+15/06/26 16:29:03
+INFO[0096] COPY tsconfig.base.json tsconfig.json ./     
+
+15/06/26 16:28:55
+Container builder is still running.
+
+15/06/26 16:28:47
+Container builder is still running.
+
+15/06/26 16:28:40
+INFO[0074] Taking snapshot of full filesystem...        
+
+15/06/26 16:28:40
+INFO[0074] Initializing snapshotter ...                 
+
+15/06/26 16:28:39
+Container builder is still running.
+
+15/06/26 16:28:31
+Container builder is still running.
