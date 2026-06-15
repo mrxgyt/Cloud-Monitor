@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Play, Square, ChevronDown, Server, ArrowDown, ArrowUp, Activity, Wifi } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Play, Square, Server, ArrowDown, ArrowUp, Activity, Wifi } from "lucide-react";
 
 type Phase = "idle" | "ping" | "download" | "upload" | "complete" | "error";
 
@@ -148,61 +149,6 @@ function Gauge({ value, maxValue, phase, pingSample }: GaugeProps) {
   );
 }
 
-// ---- Server Selector ----
-interface ServerSelectorProps {
-  servers: SpeedServer[];
-  selected: string;
-  onSelect: (id: string) => void;
-  disabled: boolean;
-}
-
-function ServerSelector({ servers, selected, onSelect, disabled }: ServerSelectorProps) {
-  const [open, setOpen] = useState(false);
-  const current = servers.find(s => s.id === selected);
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => !disabled && setOpen(o => !o)}
-        disabled={disabled}
-        data-testid="button-server-selector"
-        className="flex items-center gap-2 text-sm font-mono text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <Server className="h-3.5 w-3.5" />
-        {current ? `${current.name} — ${current.location}` : "Select server"}
-        {current?.latencyMs != null && (
-          <span className="text-xs text-primary ml-1">{current.latencyMs}ms</span>
-        )}
-        <ChevronDown className="h-3 w-3" />
-      </button>
-
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-popover border border-border rounded-lg shadow-xl min-w-[280px] overflow-hidden">
-          {servers.map(s => (
-            <button
-              key={s.id}
-              data-testid={`button-server-${s.id}`}
-              onClick={() => { onSelect(s.id); setOpen(false); }}
-              className={`w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-muted transition-colors text-left ${s.id === selected ? "bg-primary/10 text-primary" : "text-foreground"}`}
-            >
-              <div>
-                <span className="font-medium font-mono">{s.name}</span>
-                <span className="text-muted-foreground ml-2">{s.location}</span>
-              </div>
-              {s.latencyMs != null ? (
-                <span className={`text-xs font-mono ml-4 ${s.latencyMs < 50 ? "text-success" : s.latencyMs < 150 ? "text-warning" : "text-destructive"}`}>
-                  {s.latencyMs}ms
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground ml-4">timeout</span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ---- Metric Box ----
 function MetricBox({ label, value, unit, icon: Icon, color }: {
@@ -355,12 +301,35 @@ export function SpeedTestCard() {
           </CardTitle>
           <div className="flex items-center gap-3">
             {servers.length > 0 && (
-              <ServerSelector
-                servers={servers}
-                selected={selectedServer}
-                onSelect={setSelectedServer}
-                disabled={isRunning}
-              />
+              <div className="flex items-center gap-1.5">
+                <Server className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <Select
+                  value={selectedServer}
+                  onValueChange={setSelectedServer}
+                  disabled={isRunning}
+                >
+                  <SelectTrigger
+                    data-testid="select-server"
+                    className="h-8 text-xs font-mono border-border/50 bg-background/50 w-auto min-w-[200px]"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {servers.map(s => (
+                      <SelectItem key={s.id} value={s.id} data-testid={`option-server-${s.id}`}>
+                        <span className="font-mono">
+                          {s.name} — {s.location}
+                          {s.latencyMs != null && (
+                            <span className={`ml-2 ${s.latencyMs < 100 ? "text-success" : s.latencyMs < 200 ? "text-warning" : "text-destructive"}`}>
+                              {s.latencyMs}ms
+                            </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
             {isRunning ? (
               <Button
