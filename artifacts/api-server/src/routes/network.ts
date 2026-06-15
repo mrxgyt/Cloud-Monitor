@@ -296,4 +296,204 @@ router.get("/network/status-summary", async (req, res) => {
   }
 });
 
+// ---- Speed test server definitions ----
+
+const SPEED_SERVERS = [
+  {
+    id: "cloudflare",
+    name: "Cloudflare",
+    location: "Global (Auto)",
+    pingUrl: "https://speed.cloudflare.com/__down?bytes=0",
+    downloadUrl: (bytes: number) => `https://speed.cloudflare.com/__down?bytes=${bytes}`,
+    uploadUrl: "https://speed.cloudflare.com/__up",
+    maxDownloadBytes: 50_000_000,
+  },
+  {
+    id: "akamai-dallas",
+    name: "Akamai",
+    location: "Dallas, US",
+    pingUrl: "http://speedtest.dallas.linode.com",
+    downloadUrl: (_: number) => "http://speedtest.dallas.linode.com/100MB-dallas.bin",
+    uploadUrl: "https://speed.cloudflare.com/__up",
+    maxDownloadBytes: 104_857_600,
+  },
+  {
+    id: "akamai-london",
+    name: "Akamai",
+    location: "London, UK",
+    pingUrl: "http://speedtest.london.linode.com",
+    downloadUrl: (_: number) => "http://speedtest.london.linode.com/100MB-london.bin",
+    uploadUrl: "https://speed.cloudflare.com/__up",
+    maxDownloadBytes: 104_857_600,
+  },
+  {
+    id: "akamai-singapore",
+    name: "Akamai",
+    location: "Singapore",
+    pingUrl: "http://speedtest.singapore.linode.com",
+    downloadUrl: (_: number) => "http://speedtest.singapore.linode.com/100MB-singapore.bin",
+    uploadUrl: "https://speed.cloudflare.com/__up",
+    maxDownloadBytes: 104_857_600,
+  },
+  {
+    id: "akamai-tokyo",
+    name: "Akamai",
+    location: "Tokyo, JP",
+    pingUrl: "http://speedtest.tokyo2.linode.com",
+    downloadUrl: (_: number) => "http://speedtest.tokyo2.linode.com/100MB-tokyo2.bin",
+    uploadUrl: "https://speed.cloudflare.com/__up",
+    maxDownloadBytes: 104_857_600,
+  },
+] as const;
+
+type ServerId = typeof SPEED_SERVERS[number]["id"];
+
+// GET /network/speedtest/servers
+router.get("/network/speedtest/servers", async (_req, res) => {
+  const results = await Promise.all(
+    SPEED_SERVERS.map(async (s) => {
+      const { ok, ms } = await timeRequest(s.pingUrl, { method: "HEAD" });
+      return { id: s.id, name: s.name, location: s.location, latencyMs: ok ? ms : null };
+    })
+  );
+  res.json(results);
+});
+
+// GET /network/speedtest/stream?server=cloudflare  (SSE)
+router.get("/network/speedtest/stream", async (req, res) => {
+  const serverId = (req.query.server as string) || "cloudflare";
+  const server = SPEED_SERVERS.find(s => s.id === serverId) ?? SPEED_SERVERS[0];
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  let closed = false;
+  req.on("close", () => { closed = true; });
+
+  const send = (data: object) => {
+    if (!closed) res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  const abort = new AbortController();
+  req.on("close", () => abort.abort());
+
+  try {
+    // ---- PHASE: PING ----
+    send({ type: "phase", phase: "ping" });
+    const pingSamples: number[] = [];
+    for (let i = 0; i < 20 && !closed; i++) {
+      const t = Date.now();
+      try {
+        await fetch(server.pingUrl, { method: "HEAD", signal: AbortSignal.timeout(3000) });
+        const ms = Date.now() - t;
+        pingSamples.push(ms);
+        send({ type: "ping_sample", ms, sample: i + 1, total: 20 });
+      } catch { /* ignore failed pings */ }
+      await new Promise(r => setTimeout(r, 15));
+    }
+
+    let pingMs: number | null = null;
+    let jitterMs: number | null = null;
+    if (pingSamples.length > 0) {
+      const sorted = [...pingSamples].sort((a, b) => a - b);
+      pingMs = parseFloat((sorted[Math.floor(sorted.length / 2)]).toFixed(1));
+      const avg = pingSamples.reduce((s, v) => s + v, 0) / pingSamples.length;
+      const variance = pingSamples.reduce((s, v) => s + (v - avg) ** 2, 0) / pingSamples.length;
+      jitterMs = parseFloat(Math.sqrt(variance).toFixed(1));
+    }
+    send({ type: "ping_done", pingMs, jitterMs });
+
+    // ---- PHASE: DOWNLOAD ----
+    if (!closed) {
+      send({ type: "phase", phase: "download" });
+      const dlSpeeds: number[] = [];
+      const dlUrl = server.downloadUrl(server.maxDownloadBytes);
+
+      try {
+        const dlResp = await fetch(dlUrl, { signal: abort.signal });
+        if (!dlResp.body) throw new Error("no body");
+        const reader = dlResp.body.getReader();
+        let totalBytes = 0;
+        const dlStart = Date.now();
+        let lastEmit = dlStart;
+
+        while (!closed) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          totalBytes += value.byteLength;
+          const now = Date.now();
+          const elapsed = (now - dlStart) / 1000;
+          const currentMbps = (totalBytes * 8) / (elapsed * 1_000_000);
+          if (now - lastEmit >= 200) {
+            dlSpeeds.push(currentMbps);
+            send({ type: "download_progress", mbps: parseFloat(currentMbps.toFixed(2)), bytes: totalBytes });
+            lastEmit = now;
+          }
+          // stop after maxDownloadBytes to avoid long waits on large files
+          if (totalBytes >= server.maxDownloadBytes) {
+            reader.cancel();
+            break;
+          }
+        }
+
+        if (totalBytes > 0) {
+          const finalElapsed = (Date.now() - dlStart) / 1000;
+          const finalMbps = (totalBytes * 8) / (finalElapsed * 1_000_000);
+          dlSpeeds.push(finalMbps);
+        }
+      } catch (err) {
+        if (!closed) req.log.warn({ err }, "download stream error");
+      }
+
+      // Take 90th percentile of samples for best sustained speed
+      const sortedDl = [...dlSpeeds].sort((a, b) => a - b);
+      const downloadMbps = sortedDl.length > 0
+        ? parseFloat(sortedDl[Math.ceil(sortedDl.length * 0.9) - 1].toFixed(2))
+        : null;
+      send({ type: "download_done", downloadMbps });
+    }
+
+    // ---- PHASE: UPLOAD ----
+    if (!closed) {
+      send({ type: "phase", phase: "upload" });
+      const ulSizes = [500_000, 2_000_000, 5_000_000, 10_000_000];
+      const ulSpeeds: number[] = [];
+
+      for (const size of ulSizes) {
+        if (closed) break;
+        try {
+          const body = new Uint8Array(size);
+          const t = Date.now();
+          await fetch(server.uploadUrl, {
+            method: "POST",
+            body,
+            headers: { "Content-Type": "application/octet-stream" },
+            signal: AbortSignal.timeout(15000),
+          });
+          const elapsed = (Date.now() - t) / 1000;
+          const mbps = (size * 8) / (elapsed * 1_000_000);
+          ulSpeeds.push(mbps);
+          send({ type: "upload_progress", mbps: parseFloat(mbps.toFixed(2)), bytes: size });
+        } catch { /* ignore failed chunks */ }
+      }
+
+      const sortedUl = [...ulSpeeds].sort((a, b) => a - b);
+      const uploadMbps = sortedUl.length > 0
+        ? parseFloat(sortedUl[Math.ceil(sortedUl.length * 0.9) - 1].toFixed(2))
+        : null;
+      send({ type: "upload_done", uploadMbps });
+      send({ type: "complete", server: `${server.name} — ${server.location}`, testedAt: new Date().toISOString() });
+    }
+  } catch (err) {
+    if (!closed) {
+      req.log.error({ err }, "speedtest stream failed");
+      send({ type: "error", message: "Speed test failed" });
+    }
+  } finally {
+    if (!closed) res.end();
+  }
+});
+
 export default router;
