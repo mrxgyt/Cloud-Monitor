@@ -1,0 +1,7 @@
+meta:
+  environment: dockerfile
+  toolVersion: "1"
+
+run:
+  containerPort: 8080
+  isHttps: false
