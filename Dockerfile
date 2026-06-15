@@ -12,7 +12,7 @@ COPY artifacts/api-server/package.json    ./artifacts/api-server/
 COPY artifacts/netpanel/package.json      ./artifacts/netpanel/
 COPY artifacts/mockup-sandbox/package.json ./artifacts/mockup-sandbox/
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 FROM deps AS frontend
 COPY tsconfig.base.json tsconfig.json ./
