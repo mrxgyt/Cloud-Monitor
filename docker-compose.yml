@@ -1,8 +1,19 @@
 services:
-  netpanel:
-    build: .
+  nginx:
+    image: nginx:alpine
     ports:
       - "8080:8080"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - netpanel
+      - v2ray
+    restart: unless-stopped
+
+  netpanel:
+    build: .
+    expose:
+      - "8080"
     environment:
       PORT: "8080"
       NODE_ENV: production
@@ -14,8 +25,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.v2ray
-    ports:
-      - "443:443"
+    expose:
+      - "8080"
     volumes:
       - ./v2ray-config.json:/etc/v2ray/config.json:ro
     restart: unless-stopped
