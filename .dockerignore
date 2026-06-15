@@ -9,3 +9,4 @@ attached_assets
 *.log
 *.md
 artifacts/mockup-sandbox
+!artifacts/mockup-sandbox/package.json

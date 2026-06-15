@@ -7,8 +7,10 @@ COPY lib/api-client-react/package.json ./lib/api-client-react/
 COPY lib/api-spec/package.json        ./lib/api-spec/
 COPY lib/api-zod/package.json         ./lib/api-zod/
 COPY lib/db/package.json              ./lib/db/
-COPY artifacts/api-server/package.json ./artifacts/api-server/
-COPY artifacts/netpanel/package.json   ./artifacts/netpanel/
+COPY scripts/package.json             ./scripts/
+COPY artifacts/api-server/package.json    ./artifacts/api-server/
+COPY artifacts/netpanel/package.json      ./artifacts/netpanel/
+COPY artifacts/mockup-sandbox/package.json ./artifacts/mockup-sandbox/
 
 RUN pnpm install --frozen-lockfile
 
