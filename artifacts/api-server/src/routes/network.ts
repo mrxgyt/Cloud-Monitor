@@ -45,58 +45,115 @@ router.get("/network/connectivity", async (req, res) => {
   }
 });
 
+// ---- Speed test helpers ----
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function percentile90(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const idx = Math.ceil(sorted.length * 0.9) - 1;
+  return sorted[Math.max(0, idx)];
+}
+
+function jitter(values: number[]): number {
+  if (values.length < 2) return 0;
+  const avg = values.reduce((s, v) => s + v, 0) / values.length;
+  const variance = values.reduce((s, v) => s + (v - avg) ** 2, 0) / values.length;
+  return Math.sqrt(variance);
+}
+
+async function measurePing(url: string, samples: number): Promise<number[]> {
+  const results: number[] = [];
+  for (let i = 0; i < samples; i++) {
+    const t = Date.now();
+    try {
+      await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(4000) });
+      results.push(Date.now() - t);
+    } catch {
+      // skip failed pings
+    }
+    // small gap between samples
+    await new Promise(r => setTimeout(r, 20));
+  }
+  return results;
+}
+
+async function measureDownload(bytes: number): Promise<number | null> {
+  try {
+    const t = Date.now();
+    const resp = await fetch(
+      `https://speed.cloudflare.com/__down?bytes=${bytes}`,
+      { signal: AbortSignal.timeout(20000) }
+    );
+    const buf = await resp.arrayBuffer();
+    const elapsed = (Date.now() - t) / 1000;
+    if (buf.byteLength < bytes * 0.9) return null; // incomplete
+    return (buf.byteLength * 8) / (elapsed * 1_000_000); // Mbps
+  } catch {
+    return null;
+  }
+}
+
+async function measureUpload(bytes: number): Promise<number | null> {
+  try {
+    const body = new Uint8Array(bytes);
+    const t = Date.now();
+    await fetch("https://speed.cloudflare.com/__up", {
+      method: "POST",
+      body,
+      headers: { "Content-Type": "application/octet-stream" },
+      signal: AbortSignal.timeout(20000),
+    });
+    const elapsed = (Date.now() - t) / 1000;
+    return (bytes * 8) / (elapsed * 1_000_000); // Mbps
+  } catch {
+    return null;
+  }
+}
+
 // GET /speedtest
 router.get("/network/speedtest", async (req, res) => {
   const testedAt = new Date().toISOString();
   try {
-    // --- Ping: time a HEAD request to Cloudflare
-    const pingStart = Date.now();
-    try {
-      await fetch("https://1.1.1.1", { method: "HEAD", signal: AbortSignal.timeout(5000) });
-    } catch {
-      // ignore
-    }
-    const pingMs = Date.now() - pingStart;
+    // --- Phase 1: Ping — 20 samples, derive median ping + jitter
+    const pingUrl = "https://speed.cloudflare.com/__down?bytes=0";
+    const pingSamples = await measurePing(pingUrl, 20);
+    const pingMs = pingSamples.length > 0 ? parseFloat(median(pingSamples).toFixed(1)) : null;
+    const jitterMs = pingSamples.length > 1 ? parseFloat(jitter(pingSamples).toFixed(1)) : null;
 
-    // --- Download test: download 25MB from Cloudflare speed test endpoint
-    const dlStart = Date.now();
-    let downloadMbps: number | null = null;
-    try {
-      const dlResp = await fetch(
-        "https://speed.cloudflare.com/__down?bytes=25000000",
-        { signal: AbortSignal.timeout(30000) }
-      );
-      const buf = await dlResp.arrayBuffer();
-      const dlTime = (Date.now() - dlStart) / 1000; // seconds
-      const bytes = buf.byteLength;
-      downloadMbps = parseFloat(((bytes * 8) / (dlTime * 1_000_000)).toFixed(2));
-    } catch {
-      downloadMbps = null;
+    // --- Phase 2: Download — 5 runs with increasing sizes, take 90th percentile
+    const dlSizes = [1_000_000, 5_000_000, 10_000_000, 25_000_000, 25_000_000];
+    const dlSamples: number[] = [];
+    for (const size of dlSizes) {
+      const mbps = await measureDownload(size);
+      if (mbps !== null) dlSamples.push(mbps);
     }
+    const downloadMbps = dlSamples.length > 0
+      ? parseFloat(percentile90(dlSamples).toFixed(2))
+      : null;
 
-    // --- Upload test: POST 10MB of data to Cloudflare
-    const ulStart = Date.now();
-    let uploadMbps: number | null = null;
-    const uploadSize = 10 * 1024 * 1024; // 10 MB
-    try {
-      const body = new Uint8Array(uploadSize);
-      await fetch("https://speed.cloudflare.com/__up", {
-        method: "POST",
-        body,
-        headers: { "Content-Type": "application/octet-stream" },
-        signal: AbortSignal.timeout(30000),
-      });
-      const ulTime = (Date.now() - ulStart) / 1000;
-      uploadMbps = parseFloat(((uploadSize * 8) / (ulTime * 1_000_000)).toFixed(2));
-    } catch {
-      uploadMbps = null;
+    // --- Phase 3: Upload — 4 runs with increasing sizes, take 90th percentile
+    const ulSizes = [500_000, 2_000_000, 5_000_000, 10_000_000];
+    const ulSamples: number[] = [];
+    for (const size of ulSizes) {
+      const mbps = await measureUpload(size);
+      if (mbps !== null) ulSamples.push(mbps);
     }
+    const uploadMbps = ulSamples.length > 0
+      ? parseFloat(percentile90(ulSamples).toFixed(2))
+      : null;
 
     res.json({
       downloadMbps,
       uploadMbps,
       pingMs,
-      jitterMs: null,
+      jitterMs,
       server: "Cloudflare",
       testedAt,
       error: null,
