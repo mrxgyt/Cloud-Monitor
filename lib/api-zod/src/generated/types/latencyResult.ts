@@ -5,7 +5,9 @@
  * Network Panel API
  * OpenAPI spec version: 0.1.0
  */
+import type { LatencyHost } from './latencyHost';
 
-export interface HealthStatus {
-  status: string;
+export interface LatencyResult {
+  hosts: LatencyHost[];
+  measuredAt: Date;
 }

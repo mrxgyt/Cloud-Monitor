@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Network Panel API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: network
+    description: Network diagnostics and monitoring
 paths:
   /healthz:
     get:
@@ -24,6 +26,98 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /network/connectivity:
+    get:
+      operationId: checkConnectivity
+      tags: [network]
+      summary: Check internet connectivity
+      description: Checks if internet is reachable and returns status
+      responses:
+        "200":
+          description: Connectivity result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectivityResult"
+
+  /network/speedtest:
+    get:
+      operationId: runSpeedTest
+      tags: [network]
+      summary: Run speed test
+      description: Measures download speed, upload speed, and ping latency
+      responses:
+        "200":
+          description: Speed test results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpeedTestResult"
+
+  /network/ip-info:
+    get:
+      operationId: getIpInfo
+      tags: [network]
+      summary: Get IP and geolocation info
+      description: Returns public IP, ISP, country, and city
+      responses:
+        "200":
+          description: IP information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IpInfo"
+
+  /network/latency:
+    get:
+      operationId: getLatency
+      tags: [network]
+      summary: Ping multiple hosts
+      description: Measures latency to several well-known hosts
+      responses:
+        "200":
+          description: Latency results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LatencyResult"
+
+  /network/dns-lookup:
+    get:
+      operationId: dnsLookup
+      tags: [network]
+      parameters:
+        - name: host
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Hostname to resolve
+      summary: DNS lookup
+      description: Resolves a hostname to IP addresses
+      responses:
+        "200":
+          description: DNS lookup result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DnsLookupResult"
+
+  /network/status-summary:
+    get:
+      operationId: getStatusSummary
+      tags: [network]
+      summary: Overall network status summary
+      description: Returns a combined quick summary of connectivity, IP, and last speed test
+      responses:
+        "200":
+          description: Network status summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusSummary"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +128,152 @@ components:
       required:
         - status
 
+    ConnectivityResult:
+      type: object
+      properties:
+        online:
+          type: boolean
+        responseTime:
+          type: ["number", "null"]
+          description: Time in milliseconds to reach a test host
+        checkedAt:
+          type: string
+          format: date-time
+      required:
+        - online
+        - responseTime
+        - checkedAt
+
+    SpeedTestResult:
+      type: object
+      properties:
+        downloadMbps:
+          type: ["number", "null"]
+        uploadMbps:
+          type: ["number", "null"]
+        pingMs:
+          type: ["number", "null"]
+        jitterMs:
+          type: ["number", "null"]
+        server:
+          type: ["string", "null"]
+        testedAt:
+          type: string
+          format: date-time
+        error:
+          type: ["string", "null"]
+      required:
+        - downloadMbps
+        - uploadMbps
+        - pingMs
+        - jitterMs
+        - server
+        - testedAt
+        - error
+
+    IpInfo:
+      type: object
+      properties:
+        ip:
+          type: string
+        city:
+          type: ["string", "null"]
+        region:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        isp:
+          type: ["string", "null"]
+        latitude:
+          type: ["number", "null"]
+        longitude:
+          type: ["number", "null"]
+        timezone:
+          type: ["string", "null"]
+      required:
+        - ip
+        - city
+        - region
+        - country
+        - isp
+        - latitude
+        - longitude
+        - timezone
+
+    LatencyHost:
+      type: object
+      properties:
+        host:
+          type: string
+        latencyMs:
+          type: ["number", "null"]
+        reachable:
+          type: boolean
+      required:
+        - host
+        - latencyMs
+        - reachable
+
+    LatencyResult:
+      type: object
+      properties:
+        hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/LatencyHost"
+        measuredAt:
+          type: string
+          format: date-time
+      required:
+        - hosts
+        - measuredAt
+
+    DnsLookupResult:
+      type: object
+      properties:
+        host:
+          type: string
+        addresses:
+          type: array
+          items:
+            type: string
+        resolvedAt:
+          type: string
+          format: date-time
+        error:
+          type: ["string", "null"]
+      required:
+        - host
+        - addresses
+        - resolvedAt
+        - error
+
+    StatusSummary:
+      type: object
+      properties:
+        online:
+          type: boolean
+        publicIp:
+          type: ["string", "null"]
+        isp:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        lastDownloadMbps:
+          type: ["number", "null"]
+        lastUploadMbps:
+          type: ["number", "null"]
+        lastPingMs:
+          type: ["number", "null"]
+        checkedAt:
+          type: string
+          format: date-time
+      required:
+        - online
+        - publicIp
+        - isp
+        - country
+        - lastDownloadMbps
+        - lastUploadMbps
+        - lastPingMs
+        - checkedAt
