@@ -4,6 +4,16 @@ import path from "path";
 
 const router = Router();
 
+const getV2RayConfigPath = () =>
+  process.env.V2RAY_CONFIG_PATH ||
+  path.resolve(process.cwd(), "../../v2ray-config.json");
+
+const firstConfiguredHost = (value?: string) =>
+  value
+    ?.split(",")
+    .map((host) => host.trim())
+    .find(Boolean);
+
 interface V2RayConfig {
   inbounds: Array<{
     port: number;
@@ -25,29 +35,80 @@ interface V2RayConfig {
 }
 
 // GET /api/vpn/connection - Get VLESS connection string
-router.get("/vpn/connection", async (_req: Request, res: Response) => {
+router.get("/vpn/connection", async (req: Request, res: Response): Promise<void> => {
   try {
-    const configPath =
-      process.env.V2RAY_CONFIG_PATH || "/app/v2ray-config.json";
+    const configPath = getV2RayConfigPath();
     const configData = await readFile(configPath, "utf-8");
     const config: V2RayConfig = JSON.parse(configData);
 
     const inbound = config.inbounds[0];
     if (!inbound) {
-      return res.status(500).json({ error: "No inbound configuration found" });
+      res.status(500).json({ error: "No inbound configuration found" });
+      return;
     }
 
     const uuid = inbound.settings.clients[0]?.id;
+    const network = inbound.streamSettings.network;
     const wsPath = inbound.streamSettings.wsSettings.path;
-    const port = inbound.port;
-    const host = process.env.VPN_HOST || "localhost";
+    const host =
+      process.env.VPN_HOST?.trim() ||
+      firstConfiguredHost(process.env.NF_HOSTS_CUSTOM) ||
+      firstConfiguredHost(process.env.NF_HOSTS) ||
+      req.hostname ||
+      "localhost";
+    const security = (process.env.VPN_SECURITY || "tls").trim().toLowerCase();
 
     if (!uuid || !wsPath) {
-      return res.status(500).json({ error: "Invalid V2Ray configuration" });
+      res.status(500).json({ error: "Invalid V2Ray configuration" });
+      return;
     }
 
-    // Format: vless://[UUID]@[HOST]:[PORT]?type=ws&path=[PATH]&security=none#[NAME]
-    const connectionString = `vless://${uuid}@${host}:${port}?type=ws&path=${encodeURIComponent(wsPath)}&security=none#CloudMonitorVPN`;
+    if (security !== "tls" && security !== "none") {
+      res.status(500).json({
+        error: "VPN_SECURITY must be either tls or none",
+      });
+      return;
+    }
+
+    const defaultPort = security === "tls" ? 443 : inbound.port;
+    const port = Number(process.env.VPN_PUBLIC_PORT || defaultPort);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      res.status(500).json({
+        error: "VPN_PUBLIC_PORT must be an integer between 1 and 65535",
+      });
+      return;
+    }
+
+    const params = new URLSearchParams({
+      encryption: "none",
+      security,
+      type: network,
+    });
+
+    let fingerprint: string | undefined;
+    let alpn: string | undefined;
+    let sni: string | undefined;
+    let websocketHost: string | undefined;
+
+    if (security === "tls") {
+      fingerprint = process.env.VPN_FINGERPRINT?.trim() || "random";
+      alpn = process.env.VPN_ALPN?.trim() || "h3";
+      sni = process.env.VPN_SNI?.trim() || undefined;
+
+      params.set("fp", fingerprint);
+      params.set("alpn", alpn);
+      if (sni) params.set("sni", sni);
+    }
+
+    if (network === "ws") {
+      params.set("path", wsPath);
+      websocketHost = process.env.VPN_WS_HOST?.trim() || undefined;
+      if (websocketHost) params.set("host", websocketHost);
+    }
+
+    const uriHost =
+      host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+    const connectionString = `vless://${encodeURIComponent(uuid)}@${uriHost}:${port}?${params.toString()}#CloudMonitorVPN`;
 
     res.json({
       connectionString,
@@ -56,11 +117,15 @@ router.get("/vpn/connection", async (_req: Request, res: Response) => {
       port,
       path: wsPath,
       protocol: "vless",
-      network: "ws",
-      security: "none",
+      network,
+      security,
+      fingerprint,
+      alpn,
+      sni,
+      websocketHost,
     });
   } catch (error) {
-    console.error("Error reading V2Ray config:", error);
+    req.log.error({ error }, "Failed to generate VLESS connection");
     res.status(500).json({
       error: "Failed to read V2Ray configuration",
       details: error instanceof Error ? error.message : String(error),
@@ -71,8 +136,7 @@ router.get("/vpn/connection", async (_req: Request, res: Response) => {
 // GET /api/vpn/status - Check V2Ray service status
 router.get("/vpn/status", async (_req: Request, res: Response) => {
   try {
-    const configPath =
-      process.env.V2RAY_CONFIG_PATH || "/app/v2ray-config.json";
+    const configPath = getV2RayConfigPath();
     const configData = await readFile(configPath, "utf-8");
     const config: V2RayConfig = JSON.parse(configData);
 

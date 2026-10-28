@@ -1,0 +1,1 @@
+- [Публичный VLESS endpoint](vpn-endpoint-profile.md) — Рабочий клиент подключается через TLS + WebSocket на внешнем порту 443; не путать его с внутренним портом V2Ray.

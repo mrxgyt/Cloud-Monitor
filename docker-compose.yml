@@ -18,8 +18,14 @@ services:
       PORT: "8080"
       NODE_ENV: production
       STATIC_DIR: /app/public
-      VPN_HOST: "${VPN_HOST:-localhost}"
-      V2RAY_CONFIG_PATH: /app/v2ray-config.json
+      VPN_HOST: "${VPN_HOST:-}"
+      VPN_PUBLIC_PORT: "${VPN_PUBLIC_PORT:-8080}"
+      VPN_SECURITY: "${VPN_SECURITY:-none}"
+      VPN_FINGERPRINT: "${VPN_FINGERPRINT:-random}"
+      VPN_ALPN: "${VPN_ALPN:-h3}"
+      VPN_SNI: "${VPN_SNI:-}"
+      VPN_WS_HOST: "${VPN_WS_HOST:-}"
+      V2RAY_CONFIG_PATH: /etc/v2ray/config.json
 
   v2ray:
     build:

@@ -47,6 +47,7 @@ RUN chmod +x /app/start.sh
 ENV PORT=8080
 ENV NODE_ENV=production
 ENV STATIC_DIR=/app/public
+ENV V2RAY_CONFIG_PATH=/etc/v2ray/config.json
 EXPOSE 8080
 
 CMD ["/app/start.sh"]
