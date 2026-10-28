@@ -5,6 +5,7 @@ import path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { trackWebSocketProxy } from "./lib/vpn-activity";
 
 const app: Express = express();
 
@@ -36,6 +37,11 @@ app.use(
     ws: true,
     changeOrigin: true,
     logger: logger,
+    on: {
+      proxyReqWs(proxyReq, _req, socket, _options, head) {
+        trackWebSocketProxy(proxyReq, socket, head);
+      },
+    },
   }),
 );
 

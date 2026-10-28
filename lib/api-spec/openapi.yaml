@@ -12,7 +12,23 @@ tags:
     description: Health operations
   - name: network
     description: Network diagnostics and monitoring
+  - name: vpn
+    description: VPN service health and tunnel activity
 paths:
+  /vpn/status:
+    get:
+      operationId: getVpnStatus
+      tags: [vpn]
+      summary: Check V2Ray status and WebSocket traffic
+      description: Reports whether the local V2Ray listener responds and how much WebSocket traffic has passed since the API process started
+      responses:
+        "200":
+          description: V2Ray status and activity counters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VpnStatus"
+
   /healthz:
     get:
       operationId: healthCheck
@@ -277,3 +293,43 @@ components:
         - lastUploadMbps
         - lastPingMs
         - checkedAt
+
+    VpnStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [up, down]
+        port:
+          type: number
+          description: Internal V2Ray listener port
+        activeConnections:
+          type: number
+          description: Currently active WebSocket proxy connections
+        uploadBytes:
+          type: number
+          description: Whole bytes from client to V2Ray since process start
+        downloadBytes:
+          type: number
+          description: Whole bytes from V2Ray to client since process start
+        lastTrafficAt:
+          type: ["string", "null"]
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        lastChecked:
+          type: string
+          format: date-time
+        error:
+          type: ["string", "null"]
+      required:
+        - status
+        - port
+        - activeConnections
+        - uploadBytes
+        - downloadBytes
+        - lastTrafficAt
+        - startedAt
+        - lastChecked
+        - error

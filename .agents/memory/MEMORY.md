@@ -1,1 +1,2 @@
 - [Публичный VLESS endpoint](vpn-endpoint-profile.md) — Рабочий клиент подключается через TLS + WebSocket на внешнем порту 443; не путать его с внутренним портом V2Ray.
+- [OpenAPI codegen runtime](openapi-codegen-runtime.md) — Node 20 lacks `Map.groupBy`, and Orval's integer schema output is incompatible with this workspace's Zod 3.

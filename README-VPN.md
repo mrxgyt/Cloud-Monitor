@@ -21,6 +21,7 @@ docker-compose up --build
 В панели вы увидите секцию **VPN CONNECTION** с:
 - VLESS connection string (для копирования)
 - Статус VPN сервера (ONLINE/OFFLINE)
+- Активные WebSocket-подключения и счётчики переданных данных
 - Детали подключения (host, port, UUID, path)
 
 ### 3. Использование VPN
@@ -106,6 +107,11 @@ Compose: корневой `Dockerfile` собирает панель/API и за
 
 - `GET /api/vpn/connection` - Получить VLESS connection string
 - `GET /api/vpn/status` - Проверить статус VPN сервера
+
+Статус проверяет TCP-доступность внутреннего V2Ray listener, а счётчики
+показывают байты, прошедшие через WebSocket-прокси в каждом направлении.
+Счётчики и время последней активности хранятся в памяти и сбрасываются после
+перезапуска API-сервиса.
 
 ## Остановка
 

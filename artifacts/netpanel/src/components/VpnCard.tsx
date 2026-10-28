@@ -1,10 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
+import {
+  getGetVpnStatusQueryKey,
+  useGetVpnStatus,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Shield, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+  Activity,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Copy,
+  Shield,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 import { useState } from "react";
 
 interface VpnConnectionData {
@@ -18,16 +30,35 @@ interface VpnConnectionData {
   security: string;
 }
 
-interface VpnStatusData {
-  status: "up" | "down";
-  port: number;
-  lastChecked: string;
-  error?: string;
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
 export function VpnCard() {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+
+  const {
+    data: statusData,
+    isLoading: loadingStatus,
+    isError: statusError,
+  } = useGetVpnStatus({
+    query: {
+      queryKey: getGetVpnStatusQueryKey(),
+      refetchInterval: 5000,
+    },
+  });
 
   const { data: connectionData, isLoading: loadingConnection } =
     useQuery<VpnConnectionData>({
@@ -39,16 +70,6 @@ export function VpnCard() {
       },
       refetchInterval: 60000, // Refresh every minute
     });
-
-  const { data: statusData } = useQuery<VpnStatusData>({
-    queryKey: ["vpn-status"],
-    queryFn: async () => {
-      const res = await fetch("/api/vpn/status");
-      if (!res.ok) throw new Error("Failed to fetch VPN status");
-      return res.json();
-    },
-    refetchInterval: 30000, // Check status every 30 seconds
-  });
 
   const handleCopy = async () => {
     if (!connectionData?.connectionString) return;
@@ -78,7 +99,16 @@ export function VpnCard() {
             <Shield className="h-5 w-5 text-primary" />
             <span>VPN CONNECTION</span>
           </div>
-          {statusData && (
+          {loadingStatus ? (
+            <span className="text-xs font-normal text-muted-foreground">
+              CHECKING
+            </span>
+          ) : statusError || !statusData ? (
+            <div className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
+              <AlertCircle className="h-4 w-4" />
+              <span>UNKNOWN</span>
+            </div>
+          ) : (
             <div className="flex items-center gap-2 text-xs font-normal">
               {statusData.status === "up" ? (
                 <>
@@ -186,6 +216,85 @@ export function VpnCard() {
             Failed to load VPN configuration
           </div>
         )}
+
+        <section
+          className="space-y-3 border-t border-border/50 pt-4"
+          aria-label="VPN tunnel activity"
+          data-testid="panel-vpn-activity"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-primary" />
+              <span className="font-mono text-xs text-muted-foreground">
+                TUNNEL ACTIVITY
+              </span>
+            </div>
+            <span
+              className={`font-mono text-xs ${
+                statusData?.status === "up"
+                  ? "text-success"
+                  : "text-muted-foreground"
+              }`}
+              data-testid="status-vpn-activity"
+            >
+              {loadingStatus
+                ? "CHECKING"
+                : statusError || !statusData
+                  ? "UNAVAILABLE"
+                  : statusData.status === "down"
+                    ? "SERVICE OFFLINE"
+                    : statusData.uploadBytes + statusData.downloadBytes > 0
+                      ? "WS TRAFFIC OBSERVED"
+                      : "WAITING FOR WS TRAFFIC"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-md border border-border/50 bg-muted/30 p-3">
+              <div className="mb-1 flex items-center gap-2 text-muted-foreground">
+                <ArrowUpFromLine className="h-3.5 w-3.5" />
+                <span className="font-mono text-[10px]">CLIENT → SERVER</span>
+              </div>
+              <div
+                className="font-mono text-base"
+                data-testid="text-vpn-upload-bytes"
+              >
+                {statusData ? formatBytes(statusData.uploadBytes) : "—"}
+              </div>
+            </div>
+            <div className="rounded-md border border-border/50 bg-muted/30 p-3">
+              <div className="mb-1 flex items-center gap-2 text-muted-foreground">
+                <ArrowDownToLine className="h-3.5 w-3.5" />
+                <span className="font-mono text-[10px]">SERVER → CLIENT</span>
+              </div>
+              <div
+                className="font-mono text-base"
+                data-testid="text-vpn-download-bytes"
+              >
+                {statusData ? formatBytes(statusData.downloadBytes) : "—"}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between font-mono text-xs">
+            <span className="text-muted-foreground">Active WebSocket links</span>
+            <span data-testid="text-vpn-active-connections">
+              {statusData?.activeConnections ?? "—"}
+            </span>
+          </div>
+          <p
+            className="text-xs text-muted-foreground"
+            data-testid="text-vpn-last-traffic"
+          >
+            {statusData?.lastTrafficAt
+              ? `Last WebSocket data: ${new Date(statusData.lastTrafficAt).toLocaleString()}`
+              : "No WebSocket data observed since API start."}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            WebSocket bytes are counted since the API service started and reset
+            after a restart.
+          </p>
+        </section>
       </CardContent>
     </Card>
   );
